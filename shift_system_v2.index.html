@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外来シフト管理 | 福啓会グループ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#f0f4f8;font-family:'Noto Sans JP',sans-serif;font-size:13px;color:#1a2235}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#f0f4f8}
+::-webkit-scrollbar-thumb{background:#c8d0dc;border-radius:3px}
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:200px;min-width:200px;background:#1a2235;display:flex;flex-direction:column;overflow-y:auto}
+.logo-area{padding:20px 16px 16px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.logo-brand{font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.35);text-transform:uppercase}
+.logo-title{font-size:14px;font-weight:700;color:#e8c96a;margin-top:3px}
+.logo-sub{font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px}
+.sb-section{padding:16px 10px 4px}
+.sb-label{font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.3);text-transform:uppercase;padding:0 6px 8px}
+.clinic-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .15s;border:none;background:transparent;width:100%;text-align:left;color:rgba(255,255,255,0.55);font-size:12px;font-family:inherit}
+.clinic-item:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8)}
+.clinic-item.active{background:rgba(255,255,255,0.12);color:#fff}
+.clinic-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sb-divider{height:1px;background:rgba(255,255,255,0.06);margin:8px 16px}
+.sync-indicator{padding:8px 16px;font-size:10px;border-top:1px solid rgba(255,255,255,0.08);margin-top:auto}
+.sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px}
+.sync-online{background:#4ade80}
+.sync-offline{background:#f87171}
+.sync-syncing{background:#fbbf24;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;padding:10px 20px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.clinic-badge{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.date-nav-btn{width:28px;height:28px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#4a5568;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.date-nav-btn:hover{background:#edf2f7}
+.date-display{font-family:'DM Mono',monospace;font-size:12px;color:#2d3748;background:#f8fafc;border:1px solid #e2e8f0;padding:5px 14px;border-radius:6px;min-width:120px;text-align:center}
+.today-btn{padding:5px 12px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;color:#4a5568;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s}
+.today-btn:hover{background:#edf2f7}
+.save-btn{padding:6px 14px;border-radius:8px;background:#2563eb;color:#fff;border:none;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:4px}
+.save-btn:hover{background:#1d4ed8}
+.save-ok{background:#16a34a!important}
+
+.tabs-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 20px;display:flex;gap:0;flex-shrink:0}
+.tab-btn{padding:12px 16px;border:none;background:transparent;color:#64748b;cursor:pointer;font-size:12px;font-family:inherit;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{color:#1e40af;background:#f8fafc}
+.tab-btn.active{color:#1e40af;border-bottom-color:#2563eb;font-weight:700}
+.content{flex:1;overflow:auto;padding:20px}
+
+.card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,0.04);overflow:hidden}
+.card-header{padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:#fafbfc}
+.card-title{font-size:13px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:6px}
+.card-body{padding:16px 18px}
+
+.btn{padding:6px 12px;border-radius:8px;border:1px solid #e2e8f0;background:#f8fafc;color:#374151;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.btn:hover{background:#edf2f7;border-color:#cbd5e0}
+.btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}
+.btn-primary:hover{background:#1d4ed8}
+.btn-success{background:#16a34a;color:#fff;border-color:#16a34a}
+.btn-success:hover{background:#15803d}
+.btn-danger{background:#dc2626;color:#fff;border-color:#dc2626}
+.btn-danger:hover{background:#b91c1c}
+.btn-sm{padding:4px 8px;font-size:10px;border-radius:6px}
+
+.role-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700}
+.role-Dr{background:#dbeafe;color:#1d4ed8}
+.role-DH{background:#fce7f3;color:#9d174d}
+.role-DA{background:#dcfce7;color:#166534}
+
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-head{text-align:center;font-size:10px;font-weight:700;color:#64748b;padding:6px 0;letter-spacing:1px}
+.cal-head.sun{color:#dc2626}
+.cal-head.sat{color:#2563eb}
+.cal-cell{border-radius:8px;border:1px solid #e2e8f0;padding:6px;min-height:80px;cursor:pointer;transition:all .15s;background:#fff}
+.cal-cell:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(37,99,235,0.12)}
+.cal-cell.empty{background:transparent;border-color:transparent;cursor:default}
+.cal-cell.today{border-color:#2563eb;background:#eff6ff}
+.cal-cell.holiday{background:#f1f5f9;border-style:dashed;cursor:default}
+.cal-cell.selected{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,0.3)}
+.cal-date{font-size:11px;font-weight:700;margin-bottom:3px}
+.cal-date.sun{color:#dc2626}
+.cal-date.sat{color:#2563eb}
+.cal-chips{display:flex;flex-wrap:wrap;gap:2px}
+.cal-chip{font-size:9px;padding:1px 5px;border-radius:10px;white-space:nowrap}
+.alert-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;margin-left:3px}
+
+.staff-row{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;margin-bottom:6px;transition:box-shadow .15s}
+.staff-row:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.staff-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.staff-info{flex:1;min-width:0}
+.staff-name{font-size:12px;font-weight:700;color:#1e293b}
+.staff-meta{font-size:10px;color:#64748b;margin-top:1px}
+.staff-actions{display:flex;gap:4px;flex-shrink:0}
+.hours-bar{height:4px;border-radius:2px;background:#e2e8f0;overflow:hidden;margin-top:3px}
+.hours-fill{height:100%;border-radius:2px;transition:width .3s}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,0.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.25);max-height:90vh;overflow-y:auto;width:100%}
+.modal-sm{max-width:440px}
+.modal-md{max-width:600px}
+.modal-lg{max-width:800px}
+.modal-header{padding:16px 20px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
+.modal-title{font-size:14px;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:8px}
+.modal-close{width:30px;height:30px;border-radius:50%;border:none;background:#f1f5f9;color:#64748b;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:#e2e8f0}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:8px;background:#fafbfc}
+
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:11px;font-weight:700;color:#374151;margin-bottom:5px;letter-spacing:.5px}
+.form-input{width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-family:inherit;color:#1e293b;background:#fff;transition:border-color .15s}
+.form-input:focus{outline:none;border-color:#93c5fd;box-shadow:0 0 0 3px rgba(147,197,253,0.3)}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+
+.pills{display:flex;flex-wrap:wrap;gap:4px}
+.pill{padding:4px 10px;border-radius:20px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:11px;transition:all .15s}
+.pill:hover{border-color:#93c5fd;color:#1d4ed8}
+.pill.active{background:#eff6ff;border-color:#2563eb;color:#1d4ed8;font-weight:700}
+
+.shift-btns{display:flex;gap:4px;flex-wrap:wrap}
+.shift-btn{padding:4px 10px;border-radius:16px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;cursor:pointer;font-size:10px;font-family:inherit;transition:all .15s;white-space:nowrap}
+
+.alert{padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:6px;display:flex;align-items:flex-start;gap:6px}
+.alert-error{background:#fef2f2;border:1px solid #fecaca;color:#dc2626}
+.alert-warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.alert-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8}
+
+.num-stepper{display:inline-flex;align-items:center;gap:6px}
+.num-stepper button{width:24px;height:24px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.num-stepper span{font-family:'DM Mono',monospace;font-size:13px;min-width:30px;text-align:center;font-weight:500}
+
+.wday-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.wday-cell{padding:8px 4px;border-radius:8px;border:1px solid #e2e8f0;text-align:center}
+.wday-label{font-size:10px;font-weight:700;color:#64748b;margin-bottom:6px}
+
+.ov-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.ov-head{text-align:center;font-size:9px;font-weight:700;color:#64748b;padding:4px 0}
+.ov-cell{border-radius:6px;border:1px solid #e2e8f0;padding:4px;min-height:70px;background:#fff;cursor:pointer;transition:all .12s;font-size:9px}
+.ov-cell:hover{border-color:#93c5fd}
+.ov-cell.holiday{background:#f8fafc;border-style:dashed;cursor:default;opacity:.7}
+.ov-cell-date{font-weight:700;font-size:10px;margin-bottom:2px}
+.ov-staff-chip{padding:1px 4px;border-radius:4px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+.report-row{display:grid;grid-template-columns:1fr 60px 60px 60px 90px;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;border:1px solid #f1f5f9;margin-bottom:4px}
+.progress-bar{height:6px;border-radius:3px;background:#e2e8f0;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .4s}
+
+.skill-cell{cursor:pointer;text-align:center;padding:4px;font-size:14px}
+.skill-table{border-collapse:collapse;width:100%}
+.skill-table th,.skill-table td{border:1px solid #f1f5f9;padding:6px 8px;font-size:11px}
+.skill-table th{background:#f8fafc;font-weight:700;color:#374151}
+
+.tag{display:inline-flex;align-items:center;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700}
+.tag-green{background:#dcfce7;color:#166534}
+.tag-blue{background:#dbeafe;color:#1d4ed8}
+.tag-orange{background:#ffedd5;color:#9a3412}
+
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f0f4f8;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#2563eb;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
+
+// ===== SUPABASE =====
+const SUPA_URL='https://szpfkechmowticsrekmr.supabase.co';
+const SUPA_KEY='sb_publishable_k5esMD-DJeF7Glx7bkzYTA_YNL0cDFe';
+const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// ===== CONSTANTS =====
+const CLINICS=[
+  {id:'shibuya',name:'渋谷',short:'渋',color:'#2563eb',bg:'#dbeafe'},
+  {id:'oji',name:'王子',short:'王',color:'#16a34a',bg:'#dcfce7'},
+  {id:'jiyugaoka',name:'自由が丘',short:'自',color:'#a21caf',bg:'#fae8ff'},
+  {id:'akihabara',name:'秋葉原',short:'秋',color:'#c2410c',bg:'#ffedd5'},
+];
+const ROLES=['Dr','DH','DA'];
+const ROLE_COLOR={Dr:{bg:'#dbeafe',text:'#1d4ed8'},DH:{bg:'#fce7f3',text:'#9d174d'},DA:{bg:'#dcfce7',text:'#166534'}};
+const ROLE_ICON={Dr:'🩺',DH:'🪥',DA:'💁'};
+const DAYS=['日','月','火','水','木','金','土'];
+const SHIFTS=['全日','午前','午後','有給','休み'];
+const SHIFT_COLOR={'全日':'#2563eb','午前':'#16a34a','午後':'#ca8a04','有給':'#a21caf','休み':'#94a3b8'};
+
+const TIME_OPTIONS=[];
+for(let h=7;h<=21;h++){for(let m=0;m<60;m+=15){if(h===21&&m>0)break;TIME_OPTIONS.push(h*60+m);}}
+function fmtMin(m){const h=Math.floor(m/60);const mm=m%60;return (h<10?'0':'')+h+':'+(mm===0?'00':mm)}
+function calcRawH(s,e){return Math.max(0,(e-s)/60)}
+function calcNetH(raw){return raw>=6?raw-1:raw}
+function fmtH(h){const wh=Math.floor(h);const wm=Math.round((h-wh)*60);if(wm===0)return wh+'h';return wh+'h'+wm+'m'}
+function fmtDate(d){return d.getFullYear()+'-'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'-'+(d.getDate()<10?'0':'')+d.getDate();}
+function getDaysInMonth(y,m){return new Date(y,m+1,0).getDate();}
+function getWeekOfMonth(date){const d=new Date(date.getFullYear(),date.getMonth(),1);return Math.ceil((date.getDate()+d.getDay())/7);}
+
+function defaultSkillItems(){return {Dr:['インプラント','矯正・外科矯正','外科処置','精密根管治療','静脈内鎮静法'],DH:['SRP','ホワイトニング','TBI','メインテナンス','PMTC'],DA:['レセプト入力','器具滅菌管理','カウンセリング補助','在庫管理','ユニット準備']};}
+function defaultClinicSettings(){const s={};CLINICS.forEach(c=>{s[c.id]={closedDays:[0],closedDates:[],consecutiveLimit:6,staffingRules:c.id==='shibuya'?{dhDaByDr:{1:{dh:2,da:1},2:{dh:2,da:2},3:{dh:2,da:3}}}:{dhDaByDr:{1:{dh:1,da:1},2:{dh:1,da:2}}}};});return s;}
+function defaultStaff(){return [
+  {id:'s1',name:'小野 貴庸',role:'Dr',clinic:'shibuya',type:'常勤',email:'',skills:{},weekSchedule:{},level:3},
+  {id:'s2',name:'田中 誠',role:'Dr',clinic:'oji',type:'常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s3',name:'鈴木 花子',role:'Dr',clinic:'jiyugaoka',type:'常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s4',name:'山田 健太',role:'Dr',clinic:'akihabara',type:'非常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s5',name:'伊藤 さくら',role:'DH',clinic:'shibuya',type:'常勤',email:'',skills:{},weekSchedule:{},level:3},
+  {id:'s6',name:'渡辺 美咲',role:'DH',clinic:'oji',type:'常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s7',name:'中村 あゆみ',role:'DH',clinic:'jiyugaoka',type:'非常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s8',name:'小林 かな',role:'DH',clinic:'akihabara',type:'常勤',email:'',skills:{},weekSchedule:{},level:1},
+  {id:'s9',name:'加藤 律子',role:'DA',clinic:'shibuya',type:'常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s10',name:'吉田 奈々',role:'DA',clinic:'oji',type:'常勤',email:'',skills:{},weekSchedule:{},level:2},
+  {id:'s11',name:'松本 しおり',role:'DA',clinic:'jiyugaoka',type:'非常勤',email:'',skills:{},weekSchedule:{},level:1},
+  {id:'s12',name:'井上 恵',role:'DA',clinic:'akihabara',type:'常勤',email:'',skills:{},weekSchedule:{},level:2},
+];}
+
+function getDaySchedule(staff,dateStr){
+  const d=new Date(dateStr);const dow=d.getDay();const wk='w'+getWeekOfMonth(d);
+  const ws=staff.weekSchedule||{};
+  return (ws[wk]&&ws[wk][dow]?ws[wk][dow]:null)||(ws.base&&ws.base[dow]?ws.base[dow]:null)||null;
+}
+function calcMonthHours(staffId,shifts,year,month){
+  let total=0;
+  Object.entries(shifts).forEach(([ds,dayShifts])=>{
+    const d=new Date(ds);if(d.getFullYear()!==year||d.getMonth()!==month)return;
+    const e=dayShifts[staffId];if(!e||e.shift==='休み'||e.shift==='有給')return;
+    let raw=e.startMin!=null?calcRawH(e.startMin,e.endMin):(e.shift==='全日'?8:4);
+    total+=calcNetH(raw);
+  });
+  return total;
+}
+function isHoliday(dateStr,cs){
+  const d=new Date(dateStr);const dow=d.getDay();
+  return (cs.closedDays||[]).includes(dow)||(cs.closedDates||[]).includes(dateStr);
+}
+function checkAlerts(dateStr,clinicId,shifts,staffList,cs){
+  const alerts=[];const dayShifts=shifts[dateStr]||{};
+  const working=staffList.filter(s=>{const e=dayShifts[s.id];if(!e||e.shift==='休み'||e.shift==='有給')return false;return (e.clinic||s.clinic)===clinicId;});
+  const drCnt=working.filter(s=>s.role==='Dr').length;
+  const dhCnt=working.filter(s=>s.role==='DH').length;
+  const daCnt=working.filter(s=>s.role==='DA').length;
+  const req=((cs.staffingRules||{}).dhDaByDr||{})[drCnt];
+  if(drCnt>0&&req){if(dhCnt<req.dh)alerts.push('DH不足（'+dhCnt+'/'+req.dh+'）');if(daCnt<req.da)alerts.push('DA不足（'+daCnt+'/'+req.da+'）');}
+  const limit=cs.consecutiveLimit||6;
+  staffList.forEach(s=>{let cnt=0;const d=new Date(dateStr);for(let i=0;i<30;i++){const ds2=fmtDate(new Date(d.getFullYear(),d.getMonth(),d.getDate()-i));const e2=(shifts[ds2]||{})[s.id];if(e2&&e2.shift!=='休み'&&e2.shift!=='有給'){cnt++;}else break;}if(cnt>=limit)alerts.push(s.name+' '+cnt+'連勤');});
+  return alerts;
+}
+
+// ===== SUPABASE DB LAYER =====
+async function dbLoadAll(){
+  const [shiftsRes,staffRes,settingsRes]=await Promise.all([
+    supa.from('shifts').select('*'),
+    supa.from('staff').select('*'),
+    supa.from('settings').select('*'),
+  ]);
+  // shifts: {date_staffid -> entry}
+  const shiftsMap={};
+  (shiftsRes.data||[]).forEach(r=>{
+    if(!shiftsMap[r.date])shiftsMap[r.date]={};
+    shiftsMap[r.date][r.staff_id]={shift:r.shift,clinic:r.clinic,startMin:r.start_min,endMin:r.end_min};
+  });
+  // staff
+  const staffList=(staffRes.data||[]).map(r=>r.data);
+  // settings
+  const settingsMap={};
+  (settingsRes.data||[]).forEach(r=>{settingsMap[r.key]=r.data;});
+  return {
+    shifts:shiftsMap,
+    staffList:staffList.length>0?staffList:defaultStaff(),
+    clinicSettings:settingsMap.clinicSettings||defaultClinicSettings(),
+    skillItems:settingsMap.skillItems||defaultSkillItems(),
+  };
+}
+
+async function dbSaveShift(dateStr,staffId,entry){
+  if(entry===null){
+    await supa.from('shifts').delete().eq('date',dateStr).eq('staff_id',staffId);
+  } else {
+    await supa.from('shifts').upsert({
+      date:dateStr,staff_id:staffId,shift:entry.shift,clinic:entry.clinic||null,
+      start_min:entry.startMin||null,end_min:entry.endMin||null,updated_at:new Date().toISOString()
+    },{onConflict:'date,staff_id'});
+  }
+}
+async function dbSaveStaff(staffList){
+  await supa.from('staff').delete().neq('id','__dummy__');
+  const rows=staffList.map(s=>({id:s.id,data:s,updated_at:new Date().toISOString()}));
+  if(rows.length>0)await supa.from('staff').insert(rows);
+}
+async function dbSaveSettings(key,data){
+  await supa.from('settings').upsert({key,data,updated_at:new Date().toISOString()},{onConflict:'key'});
+}
+
+// ===== MODAL =====
+function Modal({open,onClose,title,size,children,footer}){
+  if(!open)return null;
+  return React.createElement('div',{className:'modal-overlay no-print',onClick:e=>{if(e.target===e.currentTarget)onClose()}},
+    React.createElement('div',{className:'modal '+(size||'modal-md')},
+      React.createElement('div',{className:'modal-header'},
+        React.createElement('div',{className:'modal-title'},title),
+        React.createElement('button',{className:'modal-close',onClick:onClose},'×')
+      ),
+      React.createElement('div',{className:'modal-body'},children),
+      footer&&React.createElement('div',{className:'modal-footer'},footer)
+    )
+  );
+}
+function NumStepper({value,onChange,min=0,max=99}){
+  return React.createElement('div',{className:'num-stepper'},
+    React.createElement('button',{onClick:()=>onChange(Math.max(min,value-1))},'-'),
+    React.createElement('span',null,value),
+    React.createElement('button',{onClick:()=>onChange(Math.min(max,value+1))},'+')
+  );
+}
+function TimeSelect({value,onChange,minVal}){
+  const opts=TIME_OPTIONS.filter(t=>minVal==null||t>minVal);
+  return React.createElement('select',{className:'form-input form-select',style:{padding:'5px 28px 5px 8px',fontSize:'11px'},value:value,onChange:e=>onChange(parseInt(e.target.value))},
+    opts.map(t=>React.createElement('option',{key:t,value:t},fmtMin(t)))
+  );
+}
+
+// ===== STAFF EDIT MODAL =====
+function StaffEditModal({staff,onSave,onClose}){
+  const nameRef=useRef(null);
+  const [role,setRole]=useState(staff.role);
+  const [clinic,setClinic]=useState(staff.clinic);
+  const [type,setType]=useState(staff.type);
+  const [email,setEmail]=useState(staff.email||'');
+  return React.createElement(Modal,{open:true,onClose,title:'👤 スタッフ編集',size:'modal-sm',
+    footer:React.createElement(React.Fragment,null,
+      React.createElement('button',{className:'btn',onClick:onClose},'キャンセル'),
+      React.createElement('button',{className:'btn btn-primary',onClick:()=>{const name=nameRef.current.value.trim();if(!name)return;onSave({...staff,name,role,clinic,type,email});}},'保存')
+    )},
+    React.createElement('div',{className:'form-group'},React.createElement('label',{className:'form-label'},'氏名'),React.createElement('input',{ref:nameRef,className:'form-input',defaultValue:staff.name,placeholder:'氏名を入力'})),
+    React.createElement('div',{className:'form-group'},React.createElement('label',{className:'form-label'},'職種'),React.createElement('div',{className:'pills'},ROLES.map(r=>React.createElement('div',{key:r,className:'pill'+(role===r?' active':''),onClick:()=>setRole(r)},r)))),
+    React.createElement('div',{className:'form-group'},React.createElement('label',{className:'form-label'},'所属院'),React.createElement('div',{className:'pills'},CLINICS.map(c=>React.createElement('div',{key:c.id,className:'pill'+(clinic===c.id?' active':''),onClick:()=>setClinic(c.id)},c.name)))),
+    React.createElement('div',{className:'form-group'},React.createElement('label',{className:'form-label'},'勤務形態'),React.createElement('div',{className:'pills'},['常勤','非常勤'].map(t=>React.createElement('div',{key:t,className:'pill'+(type===t?' active':''),onClick:()=>setType(t)},t)))),
+    React.createElement('div',{className:'form-group'},React.createElement('label',{className:'form-label'},'メール'),React.createElement('input',{className:'form-input',value:email,onChange:e=>setEmail(e.target.value),type:'email',placeholder:'example@email.com'}))
+  );
+}
+
+// ===== WEEK SCHEDULE MODAL =====
+function WeekScheduleModal({staff,onSave,onClose}){
+  const [ws,setWS]=useState(()=>{const w=JSON.parse(JSON.stringify(staff.weekSchedule||{}));if(!w.base)w.base={};['w1','w2','w3','w4','w5'].forEach(k=>{if(!w[k])w[k]={};});return w;});
+  const [activeWeek,setActiveWeek]=useState('base');
+  const wTabs=['base','w1','w2','w3','w4','w5'];
+  const wLabels={base:'基本',w1:'第1週',w2:'第2週',w3:'第3週',w4:'第4週',w5:'第5週'};
+  function setDay(dow,field,val){setWS(prev=>{const n=JSON.parse(JSON.stringify(prev));if(!n[activeWeek])n[activeWeek]={};if(val===null){delete n[activeWeek][dow];}else{if(!n[activeWeek][dow])n[activeWeek][dow]={clinic:staff.clinic,shift:'全日',startMin:9*60,endMin:18*60};n[activeWeek][dow]={...n[activeWeek][dow],[field]:val};}return n;});}
+  function toggleDay(dow){const cur=(ws[activeWeek]||{})[dow];if(cur){setDay(dow,null,null);}else{setWS(prev=>{const n=JSON.parse(JSON.stringify(prev));if(!n[activeWeek])n[activeWeek]={};n[activeWeek][dow]={clinic:staff.clinic,shift:'全日',startMin:9*60,endMin:18*60};return n;});}}
+  return React.createElement(Modal,{open:true,onClose,title:'📅 勤務設定 - '+staff.name,size:'modal-lg',
+    footer:React.createElement(React.Fragment,null,
+      React.createElement('button',{className:'btn',onClick:onClose},'キャンセル'),
+      React.createElement('button',{className:'btn btn-primary',onClick:()=>onSave({...staff,weekSchedule:ws})},'保存'))},
+    React.createElement('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,alignItems:'center'}},
+      wTabs.map(w=>React.createElement('button',{key:w,className:'btn'+(activeWeek===w?' btn-primary':''),onClick:()=>setActiveWeek(w)},wLabels[w])),
+      activeWeek==='base'&&React.createElement('button',{className:'btn btn-success',style:{marginLeft:'auto'},onClick:()=>setWS(prev=>{const n=JSON.parse(JSON.stringify(prev));['w1','w2','w3','w4','w5'].forEach(w2=>{n[w2]=JSON.parse(JSON.stringify(n.base||{}));});return n;})},'全週にコピー')
+    ),
+    React.createElement('div',{className:'wday-grid'},
+      DAYS.map((day,dow)=>{
+        const cur=(ws[activeWeek]||{})[dow];const isOn=!!cur;
+        return React.createElement('div',{key:dow,className:'wday-cell',style:{background:isOn?'#eff6ff':'#f8fafc',borderColor:isOn?'#93c5fd':'#e2e8f0'}},
+          React.createElement('div',{className:'wday-label',style:{color:dow===0?'#dc2626':dow===6?'#2563eb':'#64748b'}},day),
+          React.createElement('button',{className:'btn btn-sm',style:{width:'100%',marginBottom:6,background:isOn?'#2563eb':'',color:isOn?'#fff':'',borderColor:isOn?'#2563eb':''},onClick:()=>toggleDay(dow)},isOn?'出勤':'休み'),
+          isOn&&React.createElement(React.Fragment,null,
+            React.createElement('div',{style:{marginBottom:4}},
+              React.createElement('div',{style:{fontSize:9,color:'#64748b',marginBottom:2}},'院'),
+              React.createElement('div',{style:{display:'flex',flexWrap:'wrap',gap:2}},CLINICS.map(c=>React.createElement('div',{key:c.id,style:{padding:'2px 5px',borderRadius:8,border:'1px solid',borderColor:cur.clinic===c.id?c.color:'#e2e8f0',background:cur.clinic===c.id?c.bg:'',color:cur.clinic===c.id?c.color:'#64748b',cursor:'pointer',fontSize:9},onClick:()=>setDay(dow,'clinic',c.id)},c.short)))
+            ),
+            React.createElement('div',{style:{marginBottom:4}},
+              React.createElement('div',{style:{fontSize:9,color:'#64748b',marginBottom:2}},'区分'),
+              React.createElement('div',{style:{display:'flex',gap:2,flexWrap:'wrap'}},['全日','午前','午後'].map(sh=>React.createElement('div',{key:sh,style:{padding:'2px 5px',borderRadius:8,border:'1px solid',borderColor:cur.shift===sh?SHIFT_COLOR[sh]:'#e2e8f0',background:cur.shift===sh?SHIFT_COLOR[sh]+'22':'',color:cur.shift===sh?SHIFT_COLOR[sh]:'#64748b',cursor:'pointer',fontSize:9},onClick:()=>setDay(dow,'shift',sh)},sh)))
+            ),
+            staff.type==='非常勤'&&React.createElement('div',null,
+              React.createElement('div',{style:{fontSize:9,color:'#64748b',marginBottom:2}},'時間'),
+              React.createElement('div',{style:{display:'flex',alignItems:'center',gap:3,flexWrap:'wrap'}},
+                React.createElement(TimeSelect,{value:cur.startMin||9*60,onChange:v=>setDay(dow,'startMin',v)}),
+                React.createElement('span',{style:{fontSize:9}},'〜'),
+                React.createElement(TimeSelect,{value:cur.endMin||18*60,onChange:v=>setDay(dow,'endMin',v),minVal:cur.startMin||9*60})
+              ),
+              React.createElement('div',{style:{fontSize:9,color:'#2563eb',marginTop:2}},fmtH(calcNetH(calcRawH(cur.startMin||9*60,cur.endMin||18*60)))+'実働')
+            )
+          )
+        );
+      })
+    )
+  );
+}
+
+// ===== SKILL MODAL =====
+function SkillModal({staff,skillItems,onSave,onClose}){
+  const [skills,setSkills]=useState(JSON.parse(JSON.stringify(staff.skills||{})));
+  const stars=['−','★','★★','★★★'];
+  return React.createElement(Modal,{open:true,onClose,title:'⭐ 能力設定 - '+staff.name,size:'modal-sm',
+    footer:React.createElement(React.Fragment,null,React.createElement('button',{className:'btn',onClick:onClose},'キャンセル'),React.createElement('button',{className:'btn btn-primary',onClick:()=>onSave({...staff,skills})},'保存'))},
+    (skillItems[staff.role]||[]).map(item=>React.createElement('div',{key:item,style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f1f5f9'}},
+      React.createElement('span',{style:{fontSize:12}},ROLE_ICON[staff.role]+' '+item),
+      React.createElement('button',{className:'skill-cell',style:{border:'none',background:'transparent',fontSize:skills[item]?16:12,color:skills[item]?'#f59e0b':'#94a3b8'},onClick:()=>setSkills(prev=>{const n={...prev};n[item]=((n[item]||0)+1)%4;return n;})},stars[skills[item]||0])
+    ))
+  );
+}
+
+// ===== PRINT MODAL =====
+function PrintModal({staff,year,month,shifts,onClose}){
+  const days=getDaysInMonth(year,month);const rows=[];
+  for(let d=1;d<=days;d++){const ds=fmtDate(new Date(year,month,d));const e=(shifts[ds]||{})[staff.id];if(e&&e.shift!=='休み'){let timeStr='';if(e.startMin!=null)timeStr=fmtMin(e.startMin)+'〜'+fmtMin(e.endMin);const raw=e.startMin!=null?calcRawH(e.startMin,e.endMin):(e.shift==='全日'?8:4);rows.push({d,dow:new Date(year,month,d).getDay(),shift:e.shift,timeStr,net:calcNetH(raw),clinic:(CLINICS.find(c=>c.id===(e.clinic||staff.clinic))||{name:''}).name});}}
+  const totalH=rows.reduce((a,r)=>a+r.net,0);
+  function buildText(){let t='【勤務表】'+year+'年'+(month+1)+'月 '+staff.name+'\n\n';rows.forEach(r=>{t+=(month+1)+'/'+('0'+r.d).slice(-2)+'('+DAYS[r.dow]+') '+r.clinic+' '+r.shift+(r.timeStr?' '+r.timeStr:'')+'（'+fmtH(r.net)+'）\n';});t+='\n実労働合計: '+fmtH(totalH)+'/168h';return t;}
+  function copy(){const t=buildText();if(navigator.clipboard){navigator.clipboard.writeText(t).then(()=>alert('コピーしました！'));}else{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('コピーしました！');}}
+  return React.createElement(Modal,{open:true,onClose,title:'📄 勤務表 - '+staff.name,size:'modal-md',
+    footer:React.createElement(React.Fragment,null,React.createElement('button',{className:'btn',onClick:copy},'📋 コピー'),React.createElement('button',{className:'btn',onClick:()=>window.open('mailto:'+(staff.email||'')+'?subject='+encodeURIComponent('【勤務表】'+year+'年'+(month+1)+'月 '+staff.name)+'&body='+encodeURIComponent(buildText()))},'📧 メール'),React.createElement('button',{className:'btn',onClick:()=>window.print()},'🖨 印刷'),React.createElement('button',{className:'btn btn-primary',onClick:onClose},'閉じる'))},
+    React.createElement('div',{style:{marginBottom:8,fontSize:11,color:'#64748b'}},'実労働合計: ',React.createElement('strong',{style:{color:totalH>168?'#dc2626':'#1e293b'}},fmtH(totalH)),'/168h'),
+    React.createElement('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+      React.createElement('thead',null,React.createElement('tr',null,['日付','院','区分','時間','実働'].map(h=>React.createElement('th',{key:h,style:{padding:'5px 8px',background:'#f8fafc',border:'1px solid #e2e8f0',fontWeight:700,textAlign:'left'}},h)))),
+      React.createElement('tbody',null,rows.map(r=>React.createElement('tr',{key:r.d,style:{background:r.dow===0?'#fef2f2':r.dow===6?'#eff6ff':''}},
+        React.createElement('td',{style:{padding:'5px 8px',border:'1px solid #e2e8f0'}},(month+1)+'/'+('0'+r.d).slice(-2)+'('+DAYS[r.dow]+')'),
+        React.createElement('td',{style:{padding:'5px 8px',border:'1px solid #e2e8f0'}},r.clinic),
+        React.createElement('td',{style:{padding:'5px 8px',border:'1px solid #e2e8f0',color:SHIFT_COLOR[r.shift],fontWeight:700}},r.shift),
+        React.createElement('td',{style:{padding:'5px 8px',border:'1px solid #e2e8f0',fontFamily:'DM Mono,monospace',fontSize:10}},r.timeStr||'—'),
+        React.createElement('td',{style:{padding:'5px 8px',border:'1px solid #e2e8f0'}},fmtH(r.net))
+      )))
+    )
+  );
+}
+
+// ===== MAIN APP =====
+function App(){
+  const [loading,setLoading]=useState(true);
+  const [syncStatus,setSyncStatus]=useState('online'); // online/syncing/offline
+  const [clinicId,setClinicId]=useState('shibuya');
+  const [tab,setTab]=useState('shift');
+  const [year,setYear]=useState(()=>new Date().getFullYear());
+  const [month,setMonth]=useState(()=>new Date().getMonth());
+  const [selectedDate,setSelectedDate]=useState(null);
+  const [shifts,setShifts]=useState({});
+  const [staffList,setStaffList]=useState([]);
+  const [clinicSettings,setClinicSettings]=useState(defaultClinicSettings());
+  const [skillItems,setSkillItems]=useState(defaultSkillItems());
+  const [editStaff,setEditStaff]=useState(null);
+  const [wsStaff,setWsStaff]=useState(null);
+  const [skillStaff,setSkillStaff]=useState(null);
+  const [printStaff,setPrintStaff]=useState(null);
+  const [aiModal,setAiModal]=useState(false);
+  const [aiResult,setAiResult]=useState(null);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [closedModal,setClosedModal]=useState(null);
+
+  const clinic=CLINICS.find(c=>c.id===clinicId)||CLINICS[0];
+  const cs=clinicSettings[clinicId]||{closedDays:[0],closedDates:[],consecutiveLimit:6,staffingRules:{}};
+
+  // ===== INITIAL LOAD =====
+  useEffect(()=>{
+    dbLoadAll().then(d=>{
+      setShifts(d.shifts);
+      setStaffList(d.staffList);
+      setClinicSettings(d.clinicSettings);
+      setSkillItems(d.skillItems);
+      setLoading(false);
+    }).catch(()=>{
+      setSyncStatus('offline');
+      setStaffList(defaultStaff());
+      setLoading(false);
+    });
+  },[]);
+
+  // ===== REALTIME SUBSCRIPTION =====
+  useEffect(()=>{
+    const channel=supa.channel('shifts-changes')
+      .on('postgres_changes',{event:'*',schema:'public',table:'shifts'},payload=>{
+        const r=payload.new;const old=payload.old;
+        setShifts(prev=>{
+          const n={...prev};
+          if(payload.eventType==='DELETE'){
+            if(n[old.date]){const d={...n[old.date]};delete d[old.staff_id];n[old.date]=d;}
+          } else if(r&&r.date&&r.staff_id){
+            if(!n[r.date])n[r.date]={};
+            n[r.date]={...n[r.date],[r.staff_id]:{shift:r.shift,clinic:r.clinic,startMin:r.start_min,endMin:r.end_min}};
+          }
+          return n;
+        });
+      })
+      .subscribe();
+    return ()=>{supa.removeChannel(channel);};
+  },[]);
+
+  // ===== SHIFT SAVE =====
+  async function setShiftEntry(dateStr,staffId,entry){
+    setSyncStatus('syncing');
+    setShifts(prev=>{
+      const n={...prev};
+      if(entry===null){if(n[dateStr]){const d={...n[dateStr]};delete d[staffId];n[dateStr]=d;}}
+      else{if(!n[dateStr])n[dateStr]={};n[dateStr]={...n[dateStr],[staffId]:entry};}
+      return n;
+    });
+    try{await dbSaveShift(dateStr,staffId,entry);setSyncStatus('online');}
+    catch{setSyncStatus('offline');}
+  }
+
+  // ===== STAFF SAVE =====
+  async function saveStaffList(newList){
+    setSyncStatus('syncing');
+    setStaffList(newList);
+    try{await dbSaveStaff(newList);setSyncStatus('online');}
+    catch{setSyncStatus('offline');}
+  }
+
+  // ===== SETTINGS SAVE =====
+  async function saveClinicSettings(newCS){
+    setSyncStatus('syncing');
+    setClinicSettings(newCS);
+    try{await dbSaveSettings('clinicSettings',newCS);setSyncStatus('online');}
+    catch{setSyncStatus('offline');}
+  }
+  async function saveSkillItems(newSI){
+    setSyncStatus('syncing');
+    setSkillItems(newSI);
+    try{await dbSaveSettings('skillItems',newSI);setSyncStatus('online');}
+    catch{setSyncStatus('offline');}
+  }
+
+  function updateCS(cid,key,val){const n={...clinicSettings,[cid]:{...clinicSettings[cid],[key]:val}};saveClinicSettings(n);}
+
+  function applyWeekSchedule(sId){
+    const s=staffList.find(x=>x.id===sId);if(!s)return;
+    const days=getDaysInMonth(year,month);
+    for(let d=1;d<=days;d++){
+      const ds=fmtDate(new Date(year,month,d));
+      if(isHoliday(ds,cs))continue;
+      const sched=getDaySchedule(s,ds);
+      if(sched)setShiftEntry(ds,sId,{shift:sched.shift,clinic:sched.clinic,startMin:sched.startMin,endMin:sched.endMin});
+    }
+  }
+
+  // ===== AI =====
+  async function runAI(){
+    setAiLoading(true);setAiResult(null);
+    const prompt='歯科医院シフト管理AI。'+clinic.name+'院'+year+'年'+(month+1)+'月のシフト案をJSONのみで回答。\nスタッフ:'+JSON.stringify(staffList.map(s=>({id:s.id,name:s.name,role:s.role,clinic:s.clinic,type:s.type})))+'\n配置ルール:'+JSON.stringify(cs.staffingRules)+'\n形式:{"suggestions":[{"staffId":"s1","date":"'+year+'-'+(month+1<10?'0':'')+(month+1)+'-01","shift":"全日","clinic":"'+clinicId+'"}]}';
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:prompt}]})});
+      const data=await res.json();
+      const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim();
+      setAiResult(JSON.parse(txt).suggestions||[]);
+    }catch{setAiResult([]);}
+    setAiLoading(false);
+  }
+  function applyAI(){
+    if(!aiResult)return;
+    aiResult.forEach(sg=>setShiftEntry(sg.date,sg.staffId,{shift:sg.shift,clinic:sg.clinic||clinicId}));
+    setAiResult(null);setAiModal(false);
+  }
+
+  const tabs=[
+    {id:'shift',label:'📅 シフト作成'},
+    {id:'staff',label:'👤 スタッフ管理'},
+    {id:'skills',label:'⭐ 能力設定'},
+    {id:'overview',label:'📋 月間一覧'},
+    {id:'report',label:'📊 月間レポート'},
+    {id:'settings',label:'🏥 クリニック設定'},
+  ];
+
+  // ===== SHIFT TAB =====
+  function renderShift(){
+    const days=getDaysInMonth(year,month);const firstDow=new Date(year,month,1).getDay();
+    const cells=[];for(let i=0;i<firstDow;i++)cells.push(null);for(let d=1;d<=days;d++)cells.push(d);
+    return React.createElement('div',null,
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}},
+        React.createElement('h2',{style:{fontSize:15,fontWeight:700}},'シフト作成'),
+        React.createElement('div',{className:'pills',style:{gap:4}},CLINICS.map(c=>React.createElement('div',{key:c.id,className:'pill'+(clinicId===c.id?' active':''),style:{borderColor:c.color,color:clinicId===c.id?c.color:'',background:clinicId===c.id?c.bg:''},onClick:()=>setClinicId(c.id)},c.name))),
+        React.createElement('button',{className:'btn btn-primary',style:{marginLeft:'auto'},onClick:()=>setAiModal(true)},'🤖 AI提案')
+      ),
+      React.createElement('div',{className:'card'},React.createElement('div',{className:'card-body'},
+        React.createElement('div',{className:'cal-grid',style:{marginBottom:4}},DAYS.map((d,i)=>React.createElement('div',{key:i,className:'cal-head'+(i===0?' sun':i===6?' sat':'')},d))),
+        React.createElement('div',{className:'cal-grid'},cells.map((d,i)=>{
+          if(!d)return React.createElement('div',{key:'e'+i,className:'cal-cell empty'});
+          const ds=fmtDate(new Date(year,month,d));
+          const holiday=isHoliday(ds,cs);
+          const dayShifts=shifts[ds]||{};
+          const working=staffList.filter(s=>{const e=dayShifts[s.id];if(!e||e.shift==='休み'||e.shift==='有給')return false;return (e.clinic||s.clinic)===clinicId;});
+          const als=holiday?[]:checkAlerts(ds,clinicId,shifts,staffList,cs);
+          const dow=new Date(year,month,d).getDay();
+          const isToday=new Date().toDateString()===new Date(year,month,d).toDateString();
+          const isSel=selectedDate===ds;
+          return React.createElement('div',{key:d,className:'cal-cell'+(holiday?' holiday':'')+(isToday?' today':'')+(isSel?' selected':''),onClick:()=>!holiday&&setSelectedDate(isSel?null:ds)},
+            React.createElement('div',{className:'cal-date'+(dow===0?' sun':dow===6?' sat':'')},d,als.length>0&&React.createElement('span',{className:'alert-dot'})),
+            React.createElement('div',{className:'cal-chips'},
+              holiday?React.createElement('span',{style:{fontSize:9,color:'#94a3b8'}},'休診'):
+              working.slice(0,4).map(s=>React.createElement('span',{key:s.id,className:'cal-chip',style:{background:ROLE_COLOR[s.role].bg,color:ROLE_COLOR[s.role].text}},s.name.split(' ')[0])),
+              working.length>4&&React.createElement('span',{className:'cal-chip',style:{background:'#f1f5f9',color:'#64748b'}},'+'+( working.length-4))
+            )
+          );
+        }))
+      )),
+      selectedDate&&renderDayDetail(selectedDate),
+      aiModal&&React.createElement(Modal,{open:true,onClose:()=>{setAiModal(false);setAiResult(null);},title:'🤖 AIシフト提案',size:'modal-lg',
+        footer:React.createElement(React.Fragment,null,
+          aiResult&&React.createElement(React.Fragment,null,React.createElement('button',{className:'btn btn-success',onClick:applyAI},'✅ 適用する'),React.createElement('button',{className:'btn btn-danger',onClick:()=>setAiResult(null)},'✕ 却下する')),
+          !aiResult&&React.createElement('button',{className:'btn btn-primary',onClick:runAI,disabled:aiLoading},aiLoading?'生成中...':'🤖 提案を生成'),
+          React.createElement('button',{className:'btn',onClick:()=>{setAiModal(false);setAiResult(null);}},'閉じる')
+        )},
+        aiLoading&&React.createElement('div',{style:{textAlign:'center',padding:40,color:'#64748b'}},'AIがシフト案を生成中...'),
+        aiResult&&aiResult.length===0&&React.createElement('div',{className:'alert alert-warn'},'提案を生成できませんでした'),
+        aiResult&&aiResult.length>0&&React.createElement('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:11}},
+          React.createElement('thead',null,React.createElement('tr',null,['日付','スタッフ','職種','区分','院'].map(h=>React.createElement('th',{key:h,style:{padding:'6px 8px',background:'#f8fafc',border:'1px solid #e2e8f0',fontWeight:700,textAlign:'left'}},h)))),
+          React.createElement('tbody',null,aiResult.map((sg,i)=>{const s=staffList.find(x=>x.id===sg.staffId)||{name:sg.staffId,role:'?'};const c=CLINICS.find(x=>x.id===sg.clinic)||{name:sg.clinic||''};return React.createElement('tr',{key:i},['td1','td2','td3','td4','td5'].map((_,ti)=>React.createElement('td',{key:ti,style:{padding:'5px 8px',border:'1px solid #e2e8f0'}},[sg.date,s.name,s.role,sg.shift,c.name][ti])));}))),
+        !aiResult&&!aiLoading&&React.createElement('div',{style:{fontSize:12,color:'#64748b',padding:'10px 0'}},clinic.name+'院のシフト案をAIが生成します。')
+      )
+    );
+  }
+
+  function renderDayDetail(ds){
+    const d=new Date(ds);const dayShifts=shifts[ds]||{};
+    const als=checkAlerts(ds,clinicId,shifts,staffList,cs);
+    return React.createElement('div',{style:{marginTop:12}},React.createElement('div',{className:'card'},
+      React.createElement('div',{className:'card-header'},
+        React.createElement('div',{className:'card-title'},(d.getMonth()+1)+'月'+d.getDate()+'日('+DAYS[d.getDay()]+')'),
+        React.createElement('button',{className:'btn btn-sm',onClick:()=>setSelectedDate(null)},'閉じる')
+      ),
+      als.length>0&&React.createElement('div',{style:{padding:'8px 16px',borderBottom:'1px solid #f1f5f9'}},als.map((a,i)=>React.createElement('div',{key:i,className:'alert alert-error',style:{marginBottom:4}},a))),
+      React.createElement('div',{style:{padding:12}},staffList.map(s=>{
+        const e=dayShifts[s.id]||{};const curShift=e.shift||'休み';const curClinic=e.clinic||s.clinic;
+        const totalH=calcMonthHours(s.id,shifts,year,month);
+        return React.createElement('div',{key:s.id,style:{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,border:'1px solid #f1f5f9',marginBottom:4,background:'#fafbfc',flexWrap:'wrap'}},
+          React.createElement('span',{className:'role-badge role-'+s.role},s.role),
+          React.createElement('span',{style:{fontSize:12,fontWeight:600,minWidth:80}},s.name),
+          React.createElement('span',{style:{fontSize:9,color:'#64748b'}},s.type==='非常勤'?'非':'常'),
+          React.createElement('div',{className:'shift-btns'},SHIFTS.map(sh=>React.createElement('button',{key:sh,className:'shift-btn',style:{background:curShift===sh?SHIFT_COLOR[sh]+'22':'',borderColor:curShift===sh?SHIFT_COLOR[sh]:'',color:curShift===sh?SHIFT_COLOR[sh]:'',fontWeight:curShift===sh?700:400},onClick:()=>setShiftEntry(ds,s.id,sh==='休み'?{shift:'休み'}:{shift:sh,clinic:curClinic,startMin:sh==='午後'?13*60:9*60,endMin:sh==='午前'?13*60:18*60})},sh))),
+          s.type==='非常勤'&&curShift!=='休み'&&curShift!=='有給'&&React.createElement('div',{style:{display:'flex',alignItems:'center',gap:4}},
+            React.createElement(TimeSelect,{value:e.startMin||9*60,onChange:v=>setShiftEntry(ds,s.id,{...e,startMin:v})}),
+            React.createElement('span',{style:{fontSize:10,color:'#64748b'}},'〜'),
+            React.createElement(TimeSelect,{value:e.endMin||18*60,onChange:v=>setShiftEntry(ds,s.id,{...e,endMin:v}),minVal:e.startMin||9*60}),
+            React.createElement('span',{style:{fontSize:9,color:'#2563eb'}},fmtH(calcNetH(calcRawH(e.startMin||9*60,e.endMin||18*60)))+'実働')
+          ),
+          React.createElement('span',{style:{marginLeft:'auto',fontSize:9,color:totalH>168?'#dc2626':'#64748b'}},fmtH(totalH)+'/168h'),
+          React.createElement('button',{className:'btn btn-sm',onClick:()=>setWsStaff(s),title:'勤務設定'},'📅'),
+          React.createElement('button',{className:'btn btn-sm',onClick:()=>applyWeekSchedule(s.id),title:'月に反映'},'↻')
+        );
+      }))
+    ));
+  }
+
+  // ===== STAFF TAB =====
+  function renderStaff(){
+    return React.createElement('div',null,
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16}},
+        React.createElement('h2',{style:{fontSize:15,fontWeight:700}},'スタッフ管理'),
+        React.createElement('button',{className:'btn btn-primary',style:{marginLeft:'auto'},onClick:()=>{const ns={id:'s'+Date.now(),name:'新規スタッフ',role:'DH',clinic:'shibuya',type:'常勤',email:'',skills:{},weekSchedule:{},level:1};saveStaffList([...staffList,ns]);setEditStaff(ns);}},'+ 追加')
+      ),
+      ROLES.map(role=>React.createElement('div',{key:role,style:{marginBottom:16}},
+        React.createElement('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:8}},
+          React.createElement('span',{className:'role-badge role-'+role,style:{fontSize:12}},ROLE_ICON[role]+' '+role),
+          React.createElement('span',{style:{fontSize:11,color:'#64748b'}},staffList.filter(s=>s.role===role).length+'名')
+        ),
+        staffList.filter(s=>s.role===role).map(s=>{
+          const totalH=calcMonthHours(s.id,shifts,year,month);const pct=Math.min(100,totalH/168*100);
+          const c=CLINICS.find(x=>x.id===s.clinic)||CLINICS[0];
+          return React.createElement('div',{key:s.id,className:'staff-row'},
+            React.createElement('div',{className:'staff-avatar',style:{background:ROLE_COLOR[role].bg,color:ROLE_COLOR[role].text}},ROLE_ICON[role]),
+            React.createElement('div',{className:'staff-info'},
+              React.createElement('div',{style:{display:'flex',alignItems:'center',gap:6}},
+                React.createElement('span',{className:'staff-name'},s.name),
+                React.createElement('span',{className:'tag',style:{background:c.bg,color:c.color}},c.name),
+                React.createElement('span',{className:'tag '+(s.type==='常勤'?'tag-blue':'tag-orange')},s.type)
+              ),
+              React.createElement('div',{style:{display:'flex',alignItems:'center',gap:4,marginTop:4}},
+                React.createElement('span',{className:'staff-meta'},year+'年'+(month+1)+'月: '),
+                React.createElement('span',{style:{fontSize:10,fontWeight:700,color:totalH>168?'#dc2626':'#1e293b'}},fmtH(totalH)),
+                React.createElement('span',{className:'staff-meta'},'/168h')
+              ),
+              React.createElement('div',{className:'hours-bar',style:{width:200}},React.createElement('div',{className:'hours-fill',style:{width:pct+'%',background:totalH>168?'#dc2626':totalH>150?'#f59e0b':'#2563eb'}}))
+            ),
+            React.createElement('div',{className:'staff-actions'},
+              React.createElement('button',{className:'btn btn-sm',onClick:()=>setEditStaff(s)},'✏️'),
+              React.createElement('button',{className:'btn btn-sm',onClick:()=>setWsStaff(s)},'📅'),
+              React.createElement('button',{className:'btn btn-sm',onClick:()=>setSkillStaff(s)},'⭐'),
+              React.createElement('button',{className:'btn btn-sm',onClick:()=>setPrintStaff(s)},'📄'),
+              React.createElement('button',{className:'btn btn-sm',style:{color:'#dc2626'},onClick:()=>{if(confirm(s.name+'を削除しますか？'))saveStaffList(staffList.filter(x=>x.id!==s.id));}},'🗑')
+            )
+          );
+        })
+      ))
+    );
+  }
+
+  // ===== SKILLS TAB =====
+  function renderSkills(){
+    const [activeRole,setActiveRole]=useState('Dr');
+    const [newItem,setNewItem]=useState('');
+    const stars=['−','★','★★','★★★'];
+    return React.createElement('div',null,
+      React.createElement('div',{style:{display:'flex',gap:10,alignItems:'center',marginBottom:16}},
+        React.createElement('h2',{style:{fontSize:15,fontWeight:700}},'能力設定'),
+        React.createElement('div',{className:'pills'},ROLES.map(r=>React.createElement('div',{key:r,className:'pill'+(activeRole===r?' active':''),onClick:()=>setActiveRole(r)},ROLE_ICON[r]+' '+r)))
+      ),
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'260px 1fr',gap:16}},
+        React.createElement('div',{className:'card'},
+          React.createElement('div',{className:'card-header'},React.createElement('div',{className:'card-title'},'能力項目')),
+          React.createElement('div',{className:'card-body'},
+            (skillItems[activeRole]||[]).map((item,idx)=>React.createElement('div',{key:idx,style:{display:'flex',alignItems:'center',gap:6,marginBottom:6}},
+              React.createElement('span',{style:{flex:1,fontSize:12}},ROLE_ICON[activeRole]+' '+item),
+              React.createElement('button',{className:'btn btn-sm',style:{color:'#dc2626'},onClick:()=>{const n={...skillItems,[activeRole]:skillItems[activeRole].filter((_,i)=>i!==idx)};saveSkillItems(n);}},'🗑')
+            )),
+            React.createElement('div',{style:{display:'flex',gap:6,marginTop:8}},
+              React.createElement('input',{className:'form-input',value:newItem,onChange:e=>setNewItem(e.target.value),placeholder:'新規項目',onKeyDown:e=>{if(e.key==='Enter'&&newItem.trim()){saveSkillItems({...skillItems,[activeRole]:[...(skillItems[activeRole]||[]),newItem.trim()]});setNewItem('');}}}),
+              React.createElement('button',{className:'btn btn-primary',onClick:()=>{if(newItem.trim()){saveSkillItems({...skillItems,[activeRole]:[...(skillItems[activeRole]||[]),newItem.trim()]});setNewItem('');}}},'追加')
+            )
+          )
+        ),
+        React.createElement('div',{className:'card',style:{overflowX:'auto'}},
+          React.createElement('div',{className:'card-header'},React.createElement('div',{className:'card-title'},'スキルマトリクス')),
+          React.createElement('div',{className:'card-body'},
+            React.createElement('table',{className:'skill-table'},
+              React.createElement('thead',null,React.createElement('tr',null,React.createElement('th',null,'スタッフ'),(skillItems[activeRole]||[]).map(item=>React.createElement('th',{key:item,style:{maxWidth:70}},item)))),
+              React.createElement('tbody',null,staffList.filter(s=>s.role===activeRole).map(s=>
+                React.createElement('tr',{key:s.id},
+                  React.createElement('td',null,React.createElement('div',{style:{fontWeight:700,fontSize:11}},s.name),React.createElement('div',{style:{fontSize:9,color:'#64748b'}},CLINICS.find(c=>c.id===s.clinic)?.name)),
+                  (skillItems[activeRole]||[]).map(item=>{const lv=(s.skills||{})[item]||0;return React.createElement('td',{key:item,className:'skill-cell',style:{textAlign:'center',color:lv?'#f59e0b':'#cbd5e0',border:'1px solid #f1f5f9'},onClick:()=>{const nl=(lv+1)%4;saveStaffList(staffList.map(x=>x.id===s.id?{...x,skills:{...x.skills,[item]:nl}}:x));}},stars[lv]);})
+                )
+              ))
+            )
+          )
+        )
+      )
+    );
+  }
+
+  // ===== OVERVIEW TAB =====
+  function renderOverview(){
+    const days=getDaysInMonth(year,month);const firstDow=new Date(year,month,1).getDay();
+    const cells=[];for(let i=0;i<firstDow;i++)cells.push(null);for(let d=1;d<=days;d++)cells.push(d);
+    return React.createElement('div',null,
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}},
+        React.createElement('h2',{style:{fontSize:15,fontWeight:700}},'月間一覧'),
+        React.createElement('div',{className:'pills',style:{gap:4}},CLINICS.map(c=>React.createElement('div',{key:c.id,className:'pill'+(clinicId===c.id?' active':''),style:{borderColor:c.color,color:clinicId===c.id?c.color:'',background:clinicId===c.id?c.bg:''},onClick:()=>setClinicId(c.id)},c.name))),
+        React.createElement('button',{className:'btn',style:{marginLeft:'auto'},onClick:()=>window.print()},'🖨 印刷')
+      ),
+      React.createElement('div',{style:{overflowX:'auto'}},React.createElement('div',{style:{minWidth:700}},
+        React.createElement('div',{className:'ov-grid',style:{marginBottom:4}},DAYS.map((d,i)=>React.createElement('div',{key:i,className:'ov-head',style:{color:i===0?'#dc2626':i===6?'#2563eb':'#64748b'}},d))),
+        React.createElement('div',{className:'ov-grid'},cells.map((d,i)=>{
+          if(!d)return React.createElement('div',{key:'e'+i,style:{minHeight:70}});
+          const ds=fmtDate(new Date(year,month,d));const holiday=isHoliday(ds,cs);
+          const dayShifts=shifts[ds]||{};const dow=new Date(year,month,d).getDay();
+          const working=staffList.filter(s=>{const e=dayShifts[s.id];if(!e||e.shift==='休み'||e.shift==='有給')return false;return (e.clinic||s.clinic)===clinicId;});
+          const als=holiday?[]:checkAlerts(ds,clinicId,shifts,staffList,cs);
+          return React.createElement('div',{key:d,className:'ov-cell'+(holiday?' holiday':''),onClick:()=>!holiday&&(setSelectedDate(ds),setTab('shift')),style:{borderColor:als.length>0?'#fca5a5':'#e2e8f0',background:als.length>0?'#fff5f5':holiday?'#f8fafc':'#fff'}},
+            React.createElement('div',{className:'ov-cell-date',style:{color:dow===0?'#dc2626':dow===6?'#2563eb':'#1e293b',display:'flex',alignItems:'center',gap:2}},d,als.length>0&&React.createElement('span',{style:{width:5,height:5,borderRadius:'50%',background:'#ef4444',display:'inline-block'}})),
+            holiday?React.createElement('span',{style:{fontSize:8,color:'#94a3b8'}},'休診'):working.slice(0,5).map(s=>{const e=dayShifts[s.id];let ts='';if(s.type==='非常勤'&&e.startMin!=null)ts=fmtMin(e.startMin)+'-'+fmtMin(e.endMin);return React.createElement('div',{key:s.id,className:'ov-staff-chip',style:{background:ROLE_COLOR[s.role].bg,color:ROLE_COLOR[s.role].text}},s.name.split(' ')[0]+(ts?' '+ts:' '+e.shift));})
+          );
+        }))
+      ))
+    );
+  }
+
+  // ===== REPORT TAB =====
+  function renderReport(){
+    const [filterClinic,setFilterClinic]=useState('all');
+    const filtered=staffList.filter(s=>filterClinic==='all'||s.clinic===filterClinic);
+    return React.createElement('div',null,
+      React.createElement('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}},
+        React.createElement('h2',{style:{fontSize:15,fontWeight:700}},'月間レポート'),
+        React.createElement('div',{className:'pills'},React.createElement('div',{className:'pill'+(filterClinic==='all'?' active':''),onClick:()=>setFilterClinic('all')},'全院'),CLINICS.map(c=>React.createElement('div',{key:c.id,className:'pill'+(filterClinic===c.id?' active':''),style:{borderColor:c.color,color:filterClinic===c.id?c.color:'',background:filterClinic===c.id?c.bg:''},onClick:()=>setFilterClinic(c.id)},c.name)))
+      ),
+      React.createElement('div',{className:'card'},
+        React.createElement('div',{className:'card-header'},React.createElement('div',{className:'card-title'},year+'年'+(month+1)+'月 勤務集計')),
+        React.createElement('div',{className:'card-body'},
+          ROLES.map(role=>React.createElement('div',{key:role,style:{marginBottom:12}},
+            React.createElement('div',{style:{fontSize:10,fontWeight:700,color:ROLE_COLOR[role].text,background:ROLE_COLOR[role].bg,padding:'4px 12px',borderRadius:6,marginBottom:6,display:'inline-block'}},ROLE_ICON[role]+' '+role),
+            filtered.filter(s=>s.role===role).map(s=>{
+              const totalH=calcMonthHours(s.id,shifts,year,month);
+              const pct=Math.min(100,totalH/168*100);
+              const c=CLINICS.find(x=>x.id===s.clinic)||CLINICS[0];
+              let workDays=0;for(let d=1;d<=getDaysInMonth(year,month);d++){const ds=fmtDate(new Date(year,month,d));const e=(shifts[ds]||{})[s.id];if(e&&e.shift!=='休み'&&e.shift!=='有給')workDays++;}
+              return React.createElement('div',{key:s.id,className:'report-row',style:{background:totalH>168?'#fef2f2':'#fafbfc'}},
+                React.createElement('div',{style:{display:'flex',alignItems:'center',gap:6}},React.createElement('span',{style:{fontSize:12,fontWeight:600}},s.name),React.createElement('span',{className:'tag',style:{background:c.bg,color:c.color,fontSize:9}},c.short),s.type==='非常勤'&&React.createElement('span',{className:'tag tag-orange',style:{fontSize:9}},'非')),
+                React.createElement('div',{style:{textAlign:'center',fontSize:12}},workDays+'日'),
+                React.createElement('div',{style:{textAlign:'center',fontSize:12,fontWeight:700,color:totalH>168?'#dc2626':'#1e293b'}},fmtH(totalH)),
+                React.createElement('div',{style:{textAlign:'center',fontSize:12,color:pct>100?'#dc2626':pct>90?'#f59e0b':'#16a34a',fontWeight:700}},Math.round(pct)+'%'),
+                React.createElement('div',null,React.createElement('div',{className:'progress-bar'},React.createElement('div',{className:'progress-fill',style:{width:pct+'%',background:pct>100?'#dc2626':pct>90?'#f59e0b':'#2563eb'}})))
+              );
+            })
+          ))
+        )
+      )
+    );
+  }
+
+  // ===== SETTINGS TAB =====
+  function renderSettings(){
+    return React.createElement('div',null,
+      React.createElement('h2',{style:{fontSize:15,fontWeight:700,marginBottom:16}},'クリニック設定'),
+      React.createElement('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:16}},
+        CLINICS.map(c=>{
+          const s=clinicSettings[c.id]||{};const rules=s.staffingRules||{};const byDr=rules.dhDaByDr||{};
+          return React.createElement('div',{key:c.id,className:'card'},
+            React.createElement('div',{className:'card-header'},React.createElement('div',{className:'card-title'},React.createElement('span',{style:{width:10,height:10,borderRadius:'50%',background:c.color,display:'inline-block'}}),c.name+'院')),
+            React.createElement('div',{className:'card-body'},
+              React.createElement('div',{className:'form-group'},
+                React.createElement('label',{className:'form-label'},'定休曜日'),
+                React.createElement('div',{className:'pills'},DAYS.map((d,dow)=>React.createElement('div',{key:dow,className:'pill'+((s.closedDays||[]).includes(dow)?' active':''),style:{color:dow===0?'#dc2626':dow===6?'#2563eb':''},onClick:()=>{const cur=s.closedDays||[];updateCS(c.id,'closedDays',cur.includes(dow)?cur.filter(x=>x!==dow):[...cur,dow]);}},d)))
+              ),
+              React.createElement('div',{className:'form-group'},
+                React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}},React.createElement('label',{className:'form-label'},'臨時休診日'),React.createElement('button',{className:'btn btn-sm',onClick:()=>setClosedModal(c.id)},'📆 設定')),
+                (s.closedDates||[]).length>0&&React.createElement('div',{style:{fontSize:10,marginTop:4}},(s.closedDates||[]).map(dt=>React.createElement('span',{key:dt,style:{background:'#fee2e2',color:'#dc2626',padding:'2px 6px',borderRadius:10,marginRight:4,fontSize:9}},dt)))
+              ),
+              React.createElement('div',{className:'form-group'},
+                React.createElement('label',{className:'form-label'},'連勤制限'),
+                React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8}},React.createElement(NumStepper,{value:s.consecutiveLimit||6,min:3,max:14,onChange:v=>updateCS(c.id,'consecutiveLimit',v)}),React.createElement('span',{style:{fontSize:11,color:'#64748b'}},'日以上で警告'))
+              ),
+              React.createElement('div',{className:'form-group'},
+                React.createElement('label',{className:'form-label'},'Dr別必要人数（DH / DA）'),
+                [1,2,3].map(drCnt=>{const cur=byDr[drCnt]||{dh:1,da:1};return React.createElement('div',{key:drCnt,style:{display:'flex',alignItems:'center',gap:8,marginBottom:6,padding:'6px 10px',borderRadius:8,background:'#f8fafc',border:'1px solid #e2e8f0'}},
+                  React.createElement('span',{className:'role-badge role-Dr',style:{minWidth:46}},'Dr'+drCnt+'名'),
+                  React.createElement('span',{style:{fontSize:10,color:'#64748b'}},'DH'),
+                  React.createElement(NumStepper,{value:cur.dh,min:0,max:6,onChange:v=>{const nb={...byDr,[drCnt]:{...cur,dh:v}};updateCS(c.id,'staffingRules',{...rules,dhDaByDr:nb});}}),
+                  React.createElement('span',{style:{fontSize:10,color:'#64748b'}},'DA'),
+                  React.createElement(NumStepper,{value:cur.da,min:0,max:6,onChange:v=>{const nb={...byDr,[drCnt]:{...cur,da:v}};updateCS(c.id,'staffingRules',{...rules,dhDaByDr:nb});}}),
+                  React.createElement('span',{style:{fontSize:9,color:'#64748b'}},'計'+(cur.dh+cur.da)+'名')
+                );})
+              )
+            )
+          );
+        })
+      ),
+      closedModal&&(()=>{
+        const s=clinicSettings[closedModal]||{};const c=CLINICS.find(x=>x.id===closedModal);
+        const days2=getDaysInMonth(year,month);const firstDow2=new Date(year,month,1).getDay();
+        const cells2=[];for(let i=0;i<firstDow2;i++)cells2.push(null);for(let d=1;d<=days2;d++)cells2.push(d);
+        return React.createElement(Modal,{open:true,onClose:()=>setClosedModal(null),title:'📆 臨時休診 - '+c.name,size:'modal-md',footer:React.createElement('button',{className:'btn btn-primary',onClick:()=>setClosedModal(null)},'完了')},
+          React.createElement('div',{className:'cal-grid',style:{marginBottom:4}},DAYS.map((d,i)=>React.createElement('div',{key:i,className:'cal-head',style:{color:i===0?'#dc2626':i===6?'#2563eb':''}},d))),
+          React.createElement('div',{className:'cal-grid'},cells2.map((d,i)=>{
+            if(!d)return React.createElement('div',{key:'e'+i,className:'cal-cell empty'});
+            const ds=fmtDate(new Date(year,month,d));const dow=new Date(year,month,d).getDay();
+            const isFixed=(s.closedDays||[]).includes(dow);const isTmp=(s.closedDates||[]).includes(ds);
+            return React.createElement('div',{key:d,className:'cal-cell',style:{background:isFixed?'#fef2f2':isTmp?'#fff7ed':'#fff',borderColor:isFixed?'#fca5a5':isTmp?'#fdba74':'#e2e8f0',cursor:isFixed?'default':'pointer'},onClick:()=>{if(isFixed)return;const cur=s.closedDates||[];updateCS(closedModal,'closedDates',isTmp?cur.filter(x=>x!==ds):[...cur,ds]);}},
+              React.createElement('div',{className:'cal-date',style:{color:dow===0?'#dc2626':dow===6?'#2563eb':''}},d),
+              isFixed&&React.createElement('span',{style:{fontSize:8,color:'#dc2626'}},'定休'),
+              isTmp&&!isFixed&&React.createElement('span',{style:{fontSize:8,color:'#c2410c'}},'臨時')
+            );
+          }))
+        );
+      })()
+    );
+  }
+
+  function renderContent(){
+    if(tab==='shift')return renderShift();
+    if(tab==='staff')return renderStaff();
+    if(tab==='skills')return renderSkills();
+    if(tab==='overview')return renderOverview();
+    if(tab==='report')return renderReport();
+    if(tab==='settings')return renderSettings();
+    return null;
+  }
+
+  if(loading)return React.createElement('div',{className:'loading-screen'},
+    React.createElement('div',{className:'spinner'}),
+    React.createElement('div',{style:{fontSize:14,color:'#64748b',fontWeight:500}},'データを読み込み中...'),
+    React.createElement('div',{style:{fontSize:11,color:'#94a3b8'}},'Supabase に接続しています')
+  );
+
+  const syncLabel=syncStatus==='syncing'?'同期中...':syncStatus==='offline'?'オフライン':'同期済み';
+  const syncClass=syncStatus==='syncing'?'sync-syncing':syncStatus==='offline'?'sync-offline':'sync-online';
+
+  return React.createElement('div',{className:'app'},
+    React.createElement('div',{className:'sidebar'},
+      React.createElement('div',{className:'logo-area'},
+        React.createElement('div',{className:'logo-brand'},'Fukukeikai Group'),
+        React.createElement('div',{className:'logo-title'},'外来シフト管理'),
+        React.createElement('div',{className:'logo-sub'},'クラウド同期版')
+      ),
+      React.createElement('div',{className:'sb-section'},
+        React.createElement('div',{className:'sb-label'},'クリニック'),
+        CLINICS.map(c=>React.createElement('button',{key:c.id,className:'clinic-item'+(clinicId===c.id?' active':''),onClick:()=>setClinicId(c.id)},React.createElement('span',{className:'clinic-dot',style:{background:c.color}}),c.name))
+      ),
+      React.createElement('div',{className:'sb-divider'}),
+      React.createElement('div',{className:'sb-section'},
+        React.createElement('div',{className:'sb-label'},'メニュー'),
+        tabs.map(t=>React.createElement('button',{key:t.id,className:'clinic-item'+(tab===t.id?' active':''),onClick:()=>setTab(t.id)},t.label))
+      ),
+      React.createElement('div',{className:'sync-indicator'},
+        React.createElement('span',{className:'sync-dot '+syncClass}),
+        React.createElement('span',{style:{color:'rgba(255,255,255,0.5)',fontSize:10}},syncLabel),
+        React.createElement('br',null),
+        React.createElement('span',{style:{color:'rgba(255,255,255,0.3)',fontSize:9}},'Supabase リアルタイム同期')
+      )
+    ),
+    React.createElement('div',{className:'main'},
+      React.createElement('div',{className:'topbar'},
+        React.createElement('div',{className:'topbar-left'},React.createElement('div',{className:'clinic-badge',style:{background:clinic.bg,color:clinic.color}},React.createElement('span',{style:{width:8,height:8,borderRadius:'50%',background:clinic.color,display:'inline-block'}}),clinic.name+'院')),
+        React.createElement('div',{className:'topbar-right'},
+          React.createElement('button',{className:'date-nav-btn',onClick:()=>{if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1);}},'‹'),
+          React.createElement('div',{className:'date-display'},year+'年'+(month+1)+'月'),
+          React.createElement('button',{className:'date-nav-btn',onClick:()=>{if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1);}},'›'),
+          React.createElement('button',{className:'today-btn',onClick:()=>{const n=new Date();setYear(n.getFullYear());setMonth(n.getMonth());}},'今月')
+        )
+      ),
+      React.createElement('div',{className:'tabs-bar'},tabs.map(t=>React.createElement('button',{key:t.id,className:'tab-btn'+(tab===t.id?' active':''),onClick:()=>setTab(t.id)},t.label))),
+      React.createElement('div',{className:'content'},renderContent())
+    ),
+    editStaff&&React.createElement(StaffEditModal,{staff:editStaff,onSave:s=>{saveStaffList(staffList.map(x=>x.id===s.id?s:x));setEditStaff(null);},onClose:()=>setEditStaff(null)}),
+    wsStaff&&React.createElement(WeekScheduleModal,{staff:wsStaff,onSave:s=>{saveStaffList(staffList.map(x=>x.id===s.id?s:x));setWsStaff(null);},onClose:()=>setWsStaff(null)}),
+    skillStaff&&React.createElement(SkillModal,{staff:skillStaff,skillItems,onSave:s=>{saveStaffList(staffList.map(x=>x.id===s.id?s:x));setSkillStaff(null);},onClose:()=>setSkillStaff(null)}),
+    printStaff&&React.createElement(PrintModal,{staff:printStaff,year,month,shifts,onClose:()=>setPrintStaff(null)})
+  );
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById('root'));
+</script>
+</body>
+</html>
