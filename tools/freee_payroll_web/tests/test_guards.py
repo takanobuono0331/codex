@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from tools.freee_payroll_web.payroll_web import (
+    _parse_number,
     ACTION_CONFIRM_LABELS,
     ACTION_LABELS,
     CompanyGuardError,
@@ -71,6 +72,17 @@ class PayrollGuardTests(unittest.TestCase):
         self.assertIn("再計算", ACTION_CONFIRM_LABELS["recalc"])
         self.assertEqual(ACTION_LABELS["finalize"][0], "給与明細を確定")
         self.assertIn("自動計算に戻す", ACTION_LABELS["revert_auto"])
+
+    def test_parse_number_strips_month_over_month_paren(self) -> None:
+        # freee は「本体値 (前月比)」形式。括弧以降を捨てて本体値だけを取る。
+        self.assertEqual(_parse_number("245,353 (+125,863)"), 245353)
+        self.assertEqual(_parse_number("0 (±0)"), 0)
+        self.assertEqual(_parse_number("1,069,002"), 1069002)
+        # 全角はNFKCで半角化して数値化。
+        self.assertEqual(_parse_number("１２３"), 123)
+        # 日時セルや空セルは数値ではない → None。
+        self.assertIsNone(_parse_number("2026-06-27 21:38"))
+        self.assertIsNone(_parse_number(""))
 
     def test_default_group_id_for_old_ono(self) -> None:
         self.assertEqual(DEFAULT_PAYROLL_GROUP_IDS["12350973"], "1502865")
