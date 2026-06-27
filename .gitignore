@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+# Local agent / tool configuration
+.claude/
+.clauderc
+.mcp.json
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Local browser/test artifacts
+.playwright-cli/
+*.log
+screen_*.html
+screen_*.png
+
+# Generated or temporary working outputs
+backups/
+output/
+upload_staging/
+*.bak
+
+# 福啓会 AI自動化 — 財務/監査の出力 と シークレット（コミット厳禁）
+outputs/
+.codex/
+*tokens.json
+*.secret
+ai_audit_log.*
+tools/freee_payroll_web/.secrets/
+tools/freee_payroll_web/storage/
+tools/freee_payroll_web/company_map.local.json
+tools/freee_payroll_web/group_map.local.json
+tools/freee_payroll_web/*storage*.json
+tools/freee_payroll_web/*storage*.enc
+tools/freee_payroll_web/*.key
+
+# PDF flatten backups / temp
+pdf_pre_flatten_backup/
